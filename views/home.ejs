@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title></title>
+	<style>
+		
+		canvas{
+			border:2px solid black;	
+			
+		}
+		
+	</style>
+</head>
+<body>
+	<canvas id="canv" width="500" height="500"></canvas>
+<script src="/socket.io/socket.io.js"></script>
+ <script>
+var canvas= document.getElementById("canv");
+var c=canvas.getContext('2d');
+var socket=io();
+var score=0;
+	 var cancel;
+	function player(username,x,y,radius){
+			this.username=username;
+			this.x=x,
+			this.y=y,
+			this.radius=radius,
+			this.color="red",
+			this.health=3;
+		this.draw=function(){
+			c.beginPath();
+			c.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+			c.fillStyle=this.color;
+			c.fill();
+			c.closePath();
+			c.font="25px Arial";
+			c.textBaseline='top';
+     	c.fillText(this.username,this.x-20,this.y+23);
+		}
+	}
+	 
+	 function bullet(originX,originY,targetX,targetY){
+			 this.targetX=targetX,
+			 this.targetY=targetY,
+			this.angle=angle(originX,originY,targetX,targetY);
+		 	this.curX=originX,
+			this.curY=originY
+		 this.draw=function(){
+			 c.beginPath();
+			c.arc(this.curX, this.curY,5, 0, Math.PI * 2, false);
+			c.fillStyle="blue";
+			c.fill();
+			c.closePath();
+			 
+		 }
+			this.update=function(){
+				
+				this.curX+=15*Math.cos(this.angle);
+				this.curY+=15*Math.sin(this.angle);
+			}
+			this.check=function(){
+				for(let p=0;p<players.length;p++){
+					if(players[p].username!=curPlayer.username){
+						if(distance(this.curX,this.curY,players[p].x,players[p].y)<=25){
+							var username=players[p].username;
+							score+=1;
+						players.splice(p,1);
+						socket.emit('out',{username:username});
+					}
+					}
+					
+				}
+				
+			}
+	 }
+	var players=[];
+	 var bullets=[];
+	 var obstacles=[];
+	createPlayer();
+	function createPlayer(){
+	var total=players.concat(obstacles);
+	var radius=20;
+	let x=randomIntFromRange(radius,canvas.width-radius);
+	let y=randomIntFromRange(radius,canvas.height-radius);
+	if(players.length!==0){
+	for(let j=0;j<total.length;j++){
+		if(distance(x,y,total[j].x,total[j].y)<40){
+			x=randomIntFromRange(radius,canvas.width-radius);
+			y=randomIntFromRange(radius,canvas.height-radius);
+			j=-1;
+				}
+			}					
+		}
+		curPlayer=new player("<%=name%>",x,y,20);
+		
+		socket.emit('joinRoom',{username: '<%=name%>',room:'<%=id%>',x:x,y:y});
+	}
+	canvas.addEventListener('click',function(e){
+			bullets.push(new bullet(curPlayer.x,curPlayer.y,e.clientX,e.clientY));
+			
+		})
+ 
+	socket.on('render',function(users){
+			players=[];
+			users.forEach(user=>{
+				players.push(new player(user.username,user.x,user.y,20));
+			})
+			
+		})				
+	animate();
+	function animate(){
+		
+		c.clearRect(0,0,canvas.width,canvas.height);
+		for(let i=0;i<players.length;i++){
+			players[i].draw();
+		}
+		bullets.forEach(bullet=>{
+			bullet.update();
+			bullet.draw();
+			bullet.check();
+		})
+		obstacles.forEach(prob=>{
+			prob.draw();
+		})
+		check();
+	 cancel=requestAnimationFrame(animate);
+	}
+function check(){
+	var flag=0;
+	players.forEach(person=>{
+		if(person.username==curPlayer.username){
+			flag=1;
+		}
+	})
+	if(flag==0){
+		cancelAnimationFrame(cancel);
+		c.clearRect(0,0,canvas.width,canvas.height);
+		c.font= "15px Arial";
+     	c.textBaseline='top';
+     	c.fillText('GAME OVER SCORE:'+score,canvas.width/4,canvas.height/2);
+	}
+}
+function randomIntFromRange(min, max) {
+  return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
+function distance(x1, y1, x2, y2) {
+  var xDist = x2 - x1;
+  var yDist = y2 - y1;
+  return Math.sqrt(Math.pow(xDist, 2) + Math.pow(yDist, 2));
+}
+function obstacle(x,y,size){
+	this.x=x,
+	this.y=y,
+	this.size=size
+	
+	this.draw=function(){
+		c.beginPath();
+		c.fillStyle="brown";
+		c.fillRect(this.x,this.y,10,this.size);
+		c.closePath();
+	}
+}
+
+		//Obstacles
+
+		var total=players.concat(obstacles);
+		var x=52
+		var size=30;
+		var y=128
+			
+		obstacles.push(new obstacle(x,y,size));
+		var x=111
+		var size=40;
+		var y=29
+			
+		obstacles.push(new obstacle(x,y,size));
+		var x=124
+		var size=25;
+		var y=146
+			
+		obstacles.push(new obstacle(x,y,size));
+		var x=180
+		var size=45;
+		var y=127
+			
+		obstacles.push(new obstacle(x,y,size));
+		var x=196
+		var size=30;
+		var y=443
+			
+		obstacles.push(new obstacle(x,y,size));
+		var x=435
+		var size=30;
+		var y=214
+			
+		obstacles.push(new obstacle(x,y,size));
+		var x=223
+		var size=27;
+		var y=360
+			
+		obstacles.push(new obstacle(x,y,size));
+	function grenade(){
+		
+	}
+document.onkeydown = move;
+function move(e){
+	var y=0;
+	if(e.keyCode == 37) { 
+		if(!obsCheck(curPlayer.x-10,curPlayer.y)){
+			curPlayer.x -= 10;
+			y=1;
+		}
+	}
+	if(e.keyCode == 38) { 
+		if(!obsCheck(curPlayer.x,curPlayer.y-10)){
+			curPlayer.y-= 10;
+			y=1;
+		}	
+	}
+	if(e.keyCode == 39) {
+	if(!obsCheck(curPlayer.x+10,curPlayer.y)){
+			curPlayer.x += 10;
+			y=1;
+		}	
+	}
+	if(e.keyCode==40){
+		if(!obsCheck(curPlayer.x,curPlayer.y+10)){
+			curPlayer.y+= 10;
+			y=1;
+		}
+	}
+	if(y==1){
+		socket.emit('move',{x:curPlayer.x,y:curPlayer.y});
+	}
+	
+		}
+	function obsCheck(p,q){
+		obstacles.forEach(prob=>{
+			var circle={
+				x:p,
+				y:q,
+				r:20
+			}
+			var rect={
+				x:prob.x,
+				y:prob.y,
+				w:10,
+				h:prob.size
+			}
+			if(RectCircleColliding(circle,rect)){
+				var p= RectCircleColliding(circle,rect);
+				return p;
+			}
+		})
+		return false;
+	 
+	}
+	function RectCircleColliding(circle,rect){
+		console.log("Vis");
+    var distX = Math.abs(circle.x - rect.x-rect.w/2);
+    var distY = Math.abs(circle.y - rect.y-rect.h/2);
+
+    if (distX > (rect.w/2 + circle.r)) { return false; }
+    if (distY > (rect.h/2 + circle.r)) { return false; }
+
+    if (distX <= (rect.w/2)) { return true; } 
+    if (distY <= (rect.h/2)) { return true; }
+
+    var dx=distX-rect.w/2;
+    var dy=distY-rect.h/2;
+		console.log(dx*dx+dy*dy<=(circle.r*circle.r));
+    return (dx*dx+dy*dy<=(circle.r*circle.r));
+}
+function angle(cx,cy,ex,ey){
+	 var dy = ey - cy;
+ 	 var dx = ex - cx;
+	var theta = Math.atan2(dy, dx); // range (-PI, PI]
+	 return theta;
+}
+function randomIntFromRange(min, max) {
+  return Math.floor(Math.random() * (max - min + 1) + min);
+}
+</script>
+</body>
+</html>
